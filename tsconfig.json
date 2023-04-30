@@ -8,9 +8,6 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "allowJs": true,
-    "paths": {
-      "models": ["./models"]
-    }
   },
   
 }

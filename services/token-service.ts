@@ -23,9 +23,9 @@ export class TokenService {
 
   async saveToken(userId: number, refreshToken: string) {
     const tokenData = await DB.Tokens.findOne({ where: { userId: userId } });
-    
+
     if (tokenData) {
-      tokenData.refreshToken = refreshToken;
+      tokenData.setDataValue("refreshToken", refreshToken);
       return tokenData.save();
     }
 
@@ -33,9 +33,9 @@ export class TokenService {
     return tokenItem;
   }
 
-  validateAccessToken(token: string) {
+  validateAccessToken(token: string): UserDto | null {
     try {
-      const data = jwt.verify(token, jwtAccessSecret);
+      const data = jwt.verify(token, jwtAccessSecret) as UserDto | null;
       return data;
     } catch (error) {
       return null;
@@ -53,7 +53,7 @@ export class TokenService {
 
   async removeToken(refreshToken: string) {
     const tokenData = await DB.Tokens.findOne({ where: { refreshToken } });
-    await tokenData.destroy();
+    await tokenData?.destroy();
     return tokenData;
   }
 

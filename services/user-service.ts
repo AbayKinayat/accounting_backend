@@ -23,7 +23,7 @@ export class UserService {
       username,
       password: hashPassword
     });
-    const userDto = new UserDto(user);
+    const userDto = new UserDto(user as any);
 
     const tokens = this.tokenService.generateUserToken({ ...userDto });
     await this.tokenService.saveToken(userDto.id, tokens.refreshToken);
@@ -42,13 +42,13 @@ export class UserService {
       throw ApiError.BadRequest(`Неверный пароль или логин`); // * Для безопастности
     }
 
-    const isPassEquals = await bcrypt.compare(password, user.password);
+    const isPassEquals = await bcrypt.compare(password, user.getDataValue("password"));
 
     if (!isPassEquals) {
       throw ApiError.BadRequest(`Неверный пароль или логин`); // * Для безопастности
     }
 
-    const userDto = new UserDto(user);
+    const userDto = new UserDto(user as any);
     const tokens = this.tokenService.generateUserToken({ ...userDto }); // Generate token 
 
     await this.tokenService.saveToken(userDto.id, tokens.refreshToken);
@@ -78,7 +78,7 @@ export class UserService {
     const user = await DB.Users.findOne({
       where: { id: userData.id },
     });
-    const userDto = new UserDto(user);
+    const userDto = new UserDto(user as any);
     const tokens = this.tokenService.generateUserToken({ ...userDto });
 
     await this.tokenService.saveToken(userDto.id, tokens.refreshToken);

@@ -5,5 +5,3 @@ export function createPaginationData<T>(data: T[], count: number, limit: number)
     totalPage: Math.ceil(count / limit),
   }
 }
-
-module.exports = createPaginationData;
