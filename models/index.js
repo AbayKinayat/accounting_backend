@@ -33,11 +33,11 @@ const configs = {
 /**
  * @typedef AppDatabase
  * @type {object}
- * @property {Sequelize.ModelStatic<Model<any, any>>} Users
- * @property {Sequelize.ModelStatic<Model<any, any>>} Transactions
- * @property {Sequelize.ModelStatic<Model<any, any>>} Categories
- * @property {Sequelize.ModelStatic<Model<any, any>>} Tokens
- * @property {Sequelize.ModelStatic<Model<any, any>>} TransactionTypes
+ * @property {Sequelize.ModelStatic<Sequelize.Model<any, any>>} Users
+ * @property {Sequelize.ModelStatic<Sequelize.Model<any, any>>} Transactions
+ * @property {Sequelize.ModelStatic<Sequelize.Model<any, any>>} Categories
+ * @property {Sequelize.ModelStatic<Sequelize.Model<any, any>>} Tokens
+ * @property {Sequelize.ModelStatic<Sequelize.Model<any, any>>} TransactionTypes
  */
 
 const config = configs[env];

@@ -1,10 +1,8 @@
-export interface ITransaction {
+import { ITransactionCreate } from "./ITransactionCreate";
+
+export interface ITransaction extends ITransactionCreate {
   id: number, 
-  name: string;
-  amount: number;
-  typeId: number;
-  userId: number;
-  categoryId: number;
+  userId: number,
   createdAt: string;
   updatedAt: string;
 }
