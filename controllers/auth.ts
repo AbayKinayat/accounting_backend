@@ -7,7 +7,7 @@ const userService = new UserService();
 export class AuthController {
 
   async registration(
-    req: Request<ParamsDictionary, any, IUserAuth>,
+    req: Request<{}, any, IUserAuth>,
     res: Response,
     next: NextFunction
   ) {
@@ -23,7 +23,7 @@ export class AuthController {
 
 
   async authorization(
-    req: Request<ParamsDictionary, any, IUserAuth>,
+    req: Request<{}, any, IUserAuth>,
     res: Response,
     next: NextFunction
   ) {
@@ -41,7 +41,7 @@ export class AuthController {
   }
 
   async refreshToken(
-    req: Request<ParamsDictionary, any, { refreshToken: string }>, 
+    req: Request<{}, any, { refreshToken: string }>, 
     res: Response, 
     next: NextFunction
   ) {

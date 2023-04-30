@@ -35,18 +35,20 @@ export class TransactionsController {
           where = Object.assign(buildSequelizeFilters(filters), where);
 
         const offset = calcOffset(page, limit);
+        console.log("OFFSET", offset);
         const transactions = await DB.Transactions.findAndCountAll({
           limit,
           offset,
           where
         });
+        console.log("test")
 
         const paginatedData = createPaginationData(transactions.rows, transactions.count, limit);
 
         return res.status(200).json(paginatedData);
       }
 
-      throw ApiError.BadRequest("page or perPage not found");
+      throw ApiError.BadRequest("page or limit not found");
 
     } catch (e) {
       next(e);

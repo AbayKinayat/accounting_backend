@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { Filters } from "../types/Filters";
-import DB from "models";
+import DB from "../models";
 import { FindOptions } from "sequelize";
 import { buildSequelizeFilters } from "../helpers/buildSequelizeFilters";
 import { ITransaction } from "../types/ITransaction";
