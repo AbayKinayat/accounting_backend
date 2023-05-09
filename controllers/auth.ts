@@ -56,5 +56,18 @@ export class AuthController {
     }
   }
 
+  async logout(req: Request, res: Response, next: NextFunction) {
+    try {
+
+      const { refreshToken } = req.cookies;
+
+      await userService.logout(refreshToken);
+
+      return res.json("success");
+    } catch(e) {
+      next(e);
+    }
+  }
+
 
 }
