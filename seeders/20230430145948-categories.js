@@ -12,85 +12,99 @@ module.exports = {
         id: 1,
         name: "Продукты",
         typeId: 2,
-        iconId: "product"
+        iconId: "product",
+        color: "#25AA32"
       },
       {
         id: 2,
         name: "Такси",
         typeId: 2,
-        iconId: "taxi"
+        iconId: "taxi",
+        color: "#D7EA39"
       },
       {
         id: 3,
         name: "Автобус",
         typeId: 2,
-        iconId: "autobus"
+        iconId: "autobus",
+        color: "#C6EB6B"
       },
       {
         id: 4,
         name: "Запрлата",
         typeId: 2,
-        iconId: "salary"
+        iconId: "salary",
+        color: "#70FA70"
       },
       {
         id: 5, 
         name: "Ресторан",
         typeId: 2,
-        iconId: "restoran"
+        iconId: "restoran",
+        color: "#EB3838"
       },
       {
         id: 6,
         name: "Сладкое",
         typeId: 2,
-        iconId: "sweet"
+        iconId: "sweet",
+        color: "#DE764D"
       },
       {
         id: 7,
         name: "Аренда жилья",
         typeId: 2,
-        iconId: "rental_housing"
+        iconId: "rental_housing",
+        color: "#3DC4C0"
       },
       {
         id: 8,
         name: "Коммунальные услуги",
         typeId: 2,
-        iconId: "utilities"
+        iconId: "utilities",
+        color: "#31B779"
       },
       {
         id: 9,
         name: "Здоровье",
         typeId: 2,
-        iconId: "health"
+        iconId: "health",
+        color: '#57DF98'
       },
       {
         id: 10,
         name: "Услуги",
         typeId: 2,
-        iconId: "services"
+        iconId: "services",
+        color: "#8A45B6"
       },
       {
         id: 11,
         name: "Подарки(кому-то)",
         typeId: 2,
-        iconId: "gifts"
+        iconId: "gifts",
+        color: "#3D5AC4"
       },
       {
         id: 12,
         name: "Подарки(мне)",
         typeId: 1,
-        iconId: "gifts"
+        iconId: "gifts",
+        color: "#6450BD"
       },
       {
         id: 13,
         name: "Долги(кому-то)",
         typeId: 2,
-        iconId: "debts"
+        iconId: "debts",
+        color: "#C47C3D"
       },
       {
         id: 14,
         name: "Долги(мне)",
         typeId: 1,
-        iconId: "debts"
+        iconId: "debts",
+        color: "#F56AF0"
       }
     ];
 

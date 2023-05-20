@@ -1,20 +1,25 @@
 import { NextFunction, Request, Response } from "express";
-import DB from "../models";
+import DB, { sequelize } from "../models";
 import type { UserDto } from "../dto/userDto";
 import ApiError from "../exceptions/api-error";
 import { calcOffset } from "../helpers/calcOffset";
 import { createPaginationData } from "../helpers/createPaginationData";
-import { WhereOptions } from "sequelize";
+import { FindAndCountOptions, WhereOptions, Op } from "sequelize";
 import type { Filters } from "../types/Filters";
 import { buildSequelizeFilters } from "../helpers/buildSequelizeFilters";
 import { ITransactionCreate } from "../types/ITransactionCreate";
 import { ITransaction } from "../types/ITransaction";
+import { sort } from "../enum/sort";
 
 interface TransactionGetBody {
   page: number,
   limit: number,
-  filters?: Filters
+  filters?: Filters,
+  sortField?: string,
+  sortOrder?: number
 }
+
+type YearFilter = "year" | "month" | "week";
 
 export class TransactionsController {
 
@@ -24,24 +29,28 @@ export class TransactionsController {
     next: NextFunction
   ) {
     try {
-      const { page, limit, filters } = req.body;
+      const { page, limit, filters, sortField, sortOrder } = req.body;
       const user = req.user as UserDto;
 
       if (page && limit) {
-        let where: WhereOptions = {
-          userId: user.id
-        };
-        if (filters)
-          where = Object.assign(buildSequelizeFilters(filters), where);
-
-        const offset = calcOffset(page, limit);
-        console.log("OFFSET", offset);
-        const transactions = await DB.Transactions.findAndCountAll({
+        const options: Omit<FindAndCountOptions, 'group'> = {
           limit,
-          offset,
-          where
-        });
-        console.log("test")
+          where: {
+            userId: user.id
+          },
+          include: { all: true }
+        }
+        if (filters)
+          options.where = Object.assign(buildSequelizeFilters(filters), options.where);
+        if (sortField && sortOrder) {
+          options.order = [
+            [sortField, sort[String(sortOrder) as keyof typeof sort]]
+          ]
+        }
+        console.log("ORDER", options.order)
+
+        options.offset = calcOffset(page, limit);
+        const transactions = await DB.Transactions.findAndCountAll(options);
 
         const paginatedData = createPaginationData(transactions.rows, transactions.count, limit);
 
@@ -103,6 +112,7 @@ export class TransactionsController {
         amount,
         categoryId,
         name,
+        date,
         typeId
       } = req.body;
 
@@ -110,6 +120,7 @@ export class TransactionsController {
         userId: req.user?.id,
         amount,
         categoryId,
+        date,
         name,
         typeId
       }, { include: { all: true } });
@@ -128,8 +139,8 @@ export class TransactionsController {
     try {
       const { } = req.body;
 
-      const accessProps = ["name", "categoryId", "typeId", "amount", "createdAt", "updatedAt"];
-      const data: Partial<ITransactionCreate> & { createdAt?: string, updatedAt?: string } = {};
+      const accessProps = ["name", "categoryId", "typeId", "amount", "date"];
+      const data: Partial<ITransactionCreate> = {};
 
       for (const key in req.body) {
         const value = req.body[key as keyof ITransaction];
@@ -150,6 +161,137 @@ export class TransactionsController {
       });
 
       return res.json(transaction);
+    } catch (e) {
+      next(e);
+    }
+  }
+
+  public async getStatistic(req: Request<{}, any, { startUt: number, endUt: number }>, res: Response, next: NextFunction) {
+    try {
+      const { startUt, endUt } = req.body;
+
+      const transactions: any[] = await DB.Transactions.findAll({
+        where: {
+          date: {
+            [Op.gte]: startUt,
+            [Op.lte]: endUt
+          }
+        },
+      })
+      const categories: any[] = await DB.Categories.findAll();
+      const categoryIds: Record<string, number> = {};
+      categories.forEach(category => categoryIds[category.id] = 0);
+
+      const start = new Date(startUt * 1000);
+      const end = new Date(endUt * 1000);
+
+      if (end.getMonth() > start.getMonth() || end.getFullYear() > start.getFullYear()) {
+        const months = [
+          {
+            name: "Январь",
+            value: 0,
+            ...categoryIds
+          },
+          {
+            name: "Февраль",
+            value: 0,
+            ...categoryIds
+          },
+          {
+            name: "Март",
+            value: 0,
+            ...categoryIds
+          },
+          {
+            name: "Апрель",
+            value: 0,
+            ...categoryIds
+          },
+          {
+            name: "Май",
+            value: 0,
+            ...categoryIds
+          },
+          {
+            name: "Июнь",
+            value: 0,
+            ...categoryIds
+          },
+          {
+            name: "Июль",
+            value: 0,
+            ...categoryIds
+          },
+          {
+            name: "Август",
+            value: 0,
+            ...categoryIds
+          },
+          {
+            name: "Сентябрь",
+            value: 0,
+            ...categoryIds
+          },
+          {
+            name: "Октябрь",
+            value: 0,
+            ...categoryIds
+          },
+          {
+            name: "Ноябрь",
+            value: 0,
+            ...categoryIds
+          },
+          {
+            name: "Декабрь",
+            value: 0,
+            ...categoryIds
+          }
+        ]
+
+        transactions.forEach((transaction: any) => {
+          const date = new Date(transaction.date * 1000);
+          const monthIndex = date.getMonth();
+          const month: any = months[monthIndex]
+
+          month.value += Number(transaction.amount);
+          if (transaction.categoryId) month[transaction.categoryId] += Number(transaction.amount);
+        })
+
+        return res.json(
+          months
+        );
+      } else {
+        const month = start.getMonth();
+        const daysDate = new Date(start.getFullYear(), month + 1, 0);
+        const days = daysDate.getDate();
+        const data: { [key: string]: any } = {};
+
+        for (let day = 1; day <= days; day++) {
+          if (day >= start.getDate() && day <= end.getDate()) {
+            data[day] = {
+              name: String(day),
+              value: 0,
+              ...categoryIds
+            }
+          }
+        }
+
+        transactions.forEach((transaction: any) => {
+          const date = new Date(transaction.date * 1000);
+          const day = date.getDate();
+          console.log(transaction.name, date.getDate())
+
+          if (data[day]) {
+            data[day].value += Number(transaction.amount);
+            if (transaction.categoryId) data[day][transaction.categoryId] += Number(transaction.amount);
+          }
+        })
+
+        return res.json(Object.values(data));
+      }
+
+
     } catch (e) {
       next(e);
     }

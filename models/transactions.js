@@ -24,9 +24,10 @@ module.exports = (sequelize, DataTypes) => {
   Transactions.init({
     name: DataTypes.STRING,
     amount: DataTypes.NUMBER,
+    date: DataTypes.INTEGER,
     userId: DataTypes.INTEGER,
     typeId: DataTypes.INTEGER,
-    categoryId: DataTypes.INTEGER
+    categoryId: DataTypes.INTEGER,
   }, {
     sequelize,
     modelName: 'Transactions',
