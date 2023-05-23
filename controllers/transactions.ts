@@ -19,6 +19,12 @@ interface TransactionGetBody {
   sortOrder?: number
 }
 
+interface GetStatisticBody {
+  startUt: number,
+  endUt: number,
+  typeId?: number
+}
+
 type YearFilter = "year" | "month" | "week";
 
 export class TransactionsController {
@@ -166,17 +172,21 @@ export class TransactionsController {
     }
   }
 
-  public async getStatistic(req: Request<{}, any, { startUt: number, endUt: number }>, res: Response, next: NextFunction) {
+  public async getStatistic(req: Request<{}, any, GetStatisticBody>, res: Response, next: NextFunction) {
     try {
-      const { startUt, endUt } = req.body;
+      const { startUt, endUt, typeId } = req.body;
+
+      const where: WhereOptions = {
+        date: {
+          [Op.gte]: startUt,
+          [Op.lte]: endUt
+        }
+      }
+
+      if (typeId) where.typeId = typeId;
 
       const transactions: any[] = await DB.Transactions.findAll({
-        where: {
-          date: {
-            [Op.gte]: startUt,
-            [Op.lte]: endUt
-          }
-        },
+        where
       })
       const categories: any[] = await DB.Categories.findAll();
       const categoryIds: Record<string, number> = {};
@@ -280,7 +290,6 @@ export class TransactionsController {
         transactions.forEach((transaction: any) => {
           const date = new Date(transaction.date * 1000);
           const day = date.getDate();
-          console.log(transaction.name, date.getDate())
 
           if (data[day]) {
             data[day].value += Number(transaction.amount);
