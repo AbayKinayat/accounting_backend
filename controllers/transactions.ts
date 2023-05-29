@@ -10,6 +10,7 @@ import { buildSequelizeFilters } from "../helpers/buildSequelizeFilters";
 import { ITransactionCreate } from "../types/ITransactionCreate";
 import { ITransaction } from "../types/ITransaction";
 import { sort } from "../enum/sort";
+import { ChartType } from "../types/ChartType";
 
 interface TransactionGetBody {
   page: number,
@@ -22,7 +23,8 @@ interface TransactionGetBody {
 interface GetStatisticBody {
   startUt: number,
   endUt: number,
-  typeId?: number
+  typeId?: number,
+  chartType?: ChartType
 }
 
 type YearFilter = "year" | "month" | "week";
@@ -53,7 +55,6 @@ export class TransactionsController {
             [sortField, sort[String(sortOrder) as keyof typeof sort]]
           ]
         }
-        console.log("ORDER", options.order)
 
         options.offset = calcOffset(page, limit);
         const transactions = await DB.Transactions.findAndCountAll(options);
@@ -174,7 +175,7 @@ export class TransactionsController {
 
   public async getStatistic(req: Request<{}, any, GetStatisticBody>, res: Response, next: NextFunction) {
     try {
-      const { startUt, endUt, typeId } = req.body;
+      const { startUt, endUt, typeId, chartType = "dynamic" } = req.body;
 
       const where: WhereOptions = {
         date: {
@@ -189,116 +190,137 @@ export class TransactionsController {
         where
       })
       const categories: any[] = await DB.Categories.findAll();
-      const categoryIds: Record<string, number> = {};
-      categories.forEach(category => categoryIds[category.id] = 0);
 
       const start = new Date(startUt * 1000);
       const end = new Date(endUt * 1000);
 
-      if (end.getMonth() > start.getMonth() || end.getFullYear() > start.getFullYear()) {
-        const months = [
-          {
-            name: "Январь",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Февраль",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Март",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Апрель",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Май",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Июнь",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Июль",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Август",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Сентябрь",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Октябрь",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Ноябрь",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Декабрь",
-            value: 0,
-            ...categoryIds
-          }
-        ]
-
-        transactions.forEach((transaction: any) => {
-          const date = new Date(transaction.date * 1000);
-          const monthIndex = date.getMonth();
-          const month: any = months[monthIndex]
-
-          month.value += Number(transaction.amount);
-          if (transaction.categoryId) month[transaction.categoryId] += Number(transaction.amount);
-        })
-
-        return res.json(
-          months
-        );
-      } else {
-        const month = start.getMonth();
-        const daysDate = new Date(start.getFullYear(), month + 1, 0);
-        const days = daysDate.getDate();
-        const data: { [key: string]: any } = {};
-
-        for (let day = 1; day <= days; day++) {
-          if (day >= start.getDate() && day <= end.getDate()) {
-            data[day] = {
-              name: String(day),
+      if (chartType === "dynamic") {
+        const categoryIds: Record<string, number> = {};
+        categories.forEach(category => categoryIds[category.id] = 0);
+        if (end.getMonth() > start.getMonth() || end.getFullYear() > start.getFullYear()) {
+          const months = [
+            {
+              name: "Январь",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Февраль",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Март",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Апрель",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Май",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Июнь",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Июль",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Август",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Сентябрь",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Октябрь",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Ноябрь",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Декабрь",
               value: 0,
               ...categoryIds
             }
+          ]
+
+          transactions.forEach((transaction: any) => {
+            const date = new Date(transaction.date * 1000);
+            const monthIndex = date.getMonth();
+            const month: any = months[monthIndex]
+
+            month.value += Math.abs(Number(transaction.amount));
+            if (transaction.categoryId) month[transaction.categoryId] += Math.abs(Number(transaction.amount));
+          })
+
+          return res.json(
+            months
+          );
+        } else {
+          const month = start.getMonth();
+          const daysDate = new Date(start.getFullYear(), month + 1, 0);
+          const days = daysDate.getDate();
+          const data: { [key: string]: any } = {};
+
+          for (let day = 1; day <= days; day++) {
+            if (day >= start.getDate() && day <= end.getDate()) {
+              data[day] = {
+                name: String(day),
+                value: 0,
+                ...categoryIds
+              }
+            }
           }
+
+          transactions.forEach((transaction: any) => {
+            const date = new Date(transaction.date * 1000);
+            const day = date.getDate();
+
+            if (data[day]) {
+              data[day].value += Math.abs(Number(transaction.amount));
+              if (transaction.categoryId) data[day][transaction.categoryId] += Math.abs(Number(transaction.amount));
+            }
+          })
+
+          return res.json(Object.values(data));
         }
+      } else if (chartType === "review") {
+        const categoriesMap: Record<string, { name: string, value: number, id: number }> = {};
 
-        transactions.forEach((transaction: any) => {
-          const date = new Date(transaction.date * 1000);
-          const day = date.getDate();
-
-          if (data[day]) {
-            data[day].value += Number(transaction.amount);
-            if (transaction.categoryId) data[day][transaction.categoryId] += Number(transaction.amount);
+        categories.forEach(category => {
+          categoriesMap[category.id] = {
+            id: category.id,
+            name: category.name,
+            value: 0
           }
         })
 
-        return res.json(Object.values(data));
+        transactions.forEach(transaction => {
+          if (categoriesMap[transaction.categoryId]) {
+            categoriesMap[transaction.categoryId].value += Math.abs(Number(transaction.amount));
+          }
+        })
+
+        return res.json(Object.values(categoriesMap));
       }
+
 
 
     } catch (e) {
