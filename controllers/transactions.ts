@@ -11,6 +11,8 @@ import { ITransactionCreate } from "../types/ITransactionCreate";
 import { ITransaction } from "../types/ITransaction";
 import { sort } from "../enum/sort";
 import { ChartType } from "../types/ChartType";
+import { diffDateDays } from "../helpers/diffDateDays";
+import { getStatisticDateKey } from "../helpers/test";
 
 interface TransactionGetBody {
   page: number,
@@ -194,10 +196,16 @@ export class TransactionsController {
       const start = new Date(startUt * 1000);
       const end = new Date(endUt * 1000);
 
+      let diffDays = diffDateDays(start, end);
+
+      if (start.getDate() !== end.getDate()) {
+        diffDays += 2;
+      } else diffDays++
+
       if (chartType === "dynamic") {
         const categoryIds: Record<string, number> = {};
         categories.forEach(category => categoryIds[category.id] = 0);
-        if (end.getMonth() > start.getMonth() || end.getFullYear() > start.getFullYear()) {
+        if (diffDays > 33) {
           const months = [
             {
               name: "Январь",
@@ -271,31 +279,32 @@ export class TransactionsController {
           })
 
           return res.json(
-            months
+            months.filter((m, i) => start.getMonth() <= i && end.getMonth() >= i)
           );
         } else {
-          const month = start.getMonth();
-          const daysDate = new Date(start.getFullYear(), month + 1, 0);
-          const days = daysDate.getDate();
           const data: { [key: string]: any } = {};
 
-          for (let day = 1; day <= days; day++) {
-            if (day >= start.getDate() && day <= end.getDate()) {
-              data[day] = {
-                name: String(day),
-                value: 0,
-                ...categoryIds
-              }
+          let day = new Date(start.getTime());
+          day.setDate(start.getDate() + 1);
+          data[getStatisticDateKey(start)] = { name: String(start.getDate()), value: 0, ...categoryIds };
+          while (day.getTime() > start.getTime() && day.getTime() < end.getTime()) {
+            const key = getStatisticDateKey(day);
+            data[key] = {
+              name: String(day.getDate()),
+              value: 0,
+              ...categoryIds
             }
+            day.setDate(day.getDate() + 1)
           }
+          data[getStatisticDateKey(end)] = { name: String(end.getDate()), value: 0, ...categoryIds };
 
           transactions.forEach((transaction: any) => {
             const date = new Date(transaction.date * 1000);
-            const day = date.getDate();
+            const key = getStatisticDateKey(date);
 
-            if (data[day]) {
-              data[day].value += Math.abs(Number(transaction.amount));
-              if (transaction.categoryId) data[day][transaction.categoryId] += Math.abs(Number(transaction.amount));
+            if (data[key]) {
+              data[key].value += Math.abs(Number(transaction.amount));
+              if (transaction.categoryId) data[key][transaction.categoryId] += Math.abs(Number(transaction.amount));
             }
           })
 
