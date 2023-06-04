@@ -42,25 +42,45 @@ export class CategoriesController {
           categoryMap[category.id] = { ...category.dataValues, sum: 0, count: 0 };
         })
 
+        let expenseAmount = 0;
+        let incomeAmount = 0;
+
         transactions.forEach(transaction => {
           const category = categoryMap[transaction.categoryId];
+          const amount = Number(transaction.amount);
+
+          if (transaction.typeId === 1) {
+            incomeAmount += amount;
+          } else {
+            expenseAmount += amount;
+          }
 
           if (category) {
             if (!category.sum) category.sum = 0;
             if (!category.count) category.count = 0;
-            category.sum += Number(transaction.amount);
+            category.sum += amount;
             category.count++;
           }
         })
 
-        return res.json(Object.values(categoryMap));
+        const categoriesValue = Object.values(categoryMap).map(category => {
+          let percentage: number | string = 0;
+          let sum = Number(category.sum);
+          if (sum < 0 && expenseAmount) {
+            percentage = (sum / expenseAmount) * 100;
+          } else if (sum > 0 && incomeAmount) {
+            percentage = (sum / incomeAmount) * 100;
+          }
+          percentage = percentage.toFixed(2);
+
+          return {
+            ...category,
+            percent: percentage
+          }
+        })
+
+        return res.json(categoriesValue);
       }
-
-
-      // if (req.body.filters)  {
-      //   options.where = buildSequelizeFilters(req.body.filters);
-      // } 
-
 
       return res.status(200).json(categories);
     } catch (e) {
