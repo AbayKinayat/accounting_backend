@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import { IUserAuth } from "../types/IUserAuth";
 import { UserService } from "../services/user-service";
+import { IUser } from "../types/IUser";
+import DB from "../models";
 
 const userService = new UserService();
 
@@ -64,6 +66,18 @@ export class AuthController {
       await userService.logout(refreshToken);
 
       return res.json("success");
+    } catch(e) {
+      next(e);
+    }
+  }
+
+  async getCurrentUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = req.user as IUser;
+
+      const currentUser = await DB.Users.findByPk(user.id);
+
+      return res.status(200).json(currentUser);
     } catch(e) {
       next(e);
     }

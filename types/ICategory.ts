@@ -3,6 +3,9 @@ export interface ICategory {
   name: string;
   typeId: number,
   iconId: string,
+  sum?: number,
+  count?: number
   createdAt: string,
-  updatedAt: StringConstructor
+  updatedAt: StringConstructor,
+  percent?: string
 }

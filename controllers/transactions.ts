@@ -1,5 +1,6 @@
+import { IUser } from './../types/IUser';
 import { NextFunction, Request, Response } from "express";
-import DB, { sequelize } from "../models";
+import DB from "../models";
 import type { UserDto } from "../dto/userDto";
 import ApiError from "../exceptions/api-error";
 import { calcOffset } from "../helpers/calcOffset";
@@ -10,6 +11,9 @@ import { buildSequelizeFilters } from "../helpers/buildSequelizeFilters";
 import { ITransactionCreate } from "../types/ITransactionCreate";
 import { ITransaction } from "../types/ITransaction";
 import { sort } from "../enum/sort";
+import { ChartType } from "../types/ChartType";
+import { diffDateDays } from "../helpers/diffDateDays";
+import { getStatisticDateKey } from "../helpers/test";
 
 interface TransactionGetBody {
   page: number,
@@ -19,7 +23,12 @@ interface TransactionGetBody {
   sortOrder?: number
 }
 
-type YearFilter = "year" | "month" | "week";
+interface GetStatisticBody {
+  startUt: number,
+  endUt: number,
+  typeId?: number,
+  chartType?: ChartType
+}
 
 export class TransactionsController {
 
@@ -47,7 +56,6 @@ export class TransactionsController {
             [sortField, sort[String(sortOrder) as keyof typeof sort]]
           ]
         }
-        console.log("ORDER", options.order)
 
         options.offset = calcOffset(page, limit);
         const transactions = await DB.Transactions.findAndCountAll(options);
@@ -115,17 +123,27 @@ export class TransactionsController {
         date,
         typeId
       } = req.body;
+      const user = req.user as IUser;
+      const currentUser: any = await DB.Users.findByPk(user.id);
 
-      const transaction = await DB.Transactions.create({
-        userId: req.user?.id,
-        amount,
-        categoryId,
-        date,
-        name,
-        typeId
-      }, { include: { all: true } });
+      if (currentUser) {
+        const transaction = await DB.Transactions.create({
+          userId: req.user?.id,
+          amount,
+          categoryId,
+          date,
+          name,
+          typeId
+        }, { include: { all: true } });
 
-      return res.status(201).json(transaction);
+        currentUser.cash = Number(currentUser.cash) + amount;
+        currentUser?.save();
+
+        return res.status(201).json(transaction);
+      }
+
+
+      return res.status(401);
     } catch (e) {
       next(e);
     }
@@ -137,7 +155,7 @@ export class TransactionsController {
     next: NextFunction
   ) {
     try {
-      const { } = req.body;
+      const user = req.user as IUser;
 
       const accessProps = ["name", "categoryId", "typeId", "amount", "date"];
       const data: Partial<ITransactionCreate> = {};
@@ -149,6 +167,12 @@ export class TransactionsController {
         }
       }
 
+      const prevTransaction: any = await DB.Transactions.findByPk(Number(req.params.id), {
+        include: { all: true }
+      });
+      const prevAmount = Number(prevTransaction.amount);
+
+      const currentUser: any = await DB.Users.findByPk(user.id);
       await DB.Transactions.update(data, {
         where: {
           id: req.params.id,
@@ -156,9 +180,15 @@ export class TransactionsController {
         },
       });
 
-      const transaction = await DB.Transactions.findByPk(Number(req.params.id), {
+      const transaction: any = await DB.Transactions.findByPk(Number(req.params.id), {
         include: { all: true }
       });
+
+      if (currentUser) {
+        currentUser.cash = Number(currentUser.cash) - Number(prevAmount);
+        currentUser.cash = Number(currentUser.cash) + Number(data.amount);
+        currentUser.save()
+      }
 
       return res.json(transaction);
     } catch (e) {
@@ -166,130 +196,161 @@ export class TransactionsController {
     }
   }
 
-  public async getStatistic(req: Request<{}, any, { startUt: number, endUt: number }>, res: Response, next: NextFunction) {
+  public async getStatistic(req: Request<{}, any, GetStatisticBody>, res: Response, next: NextFunction) {
     try {
-      const { startUt, endUt } = req.body;
+      const { startUt, endUt, typeId, chartType = "dynamic" } = req.body;
+
+      const where: WhereOptions = {
+        date: {
+          [Op.gte]: startUt,
+          [Op.lte]: endUt
+        }
+      }
+
+      if (typeId) where.typeId = typeId;
 
       const transactions: any[] = await DB.Transactions.findAll({
-        where: {
-          date: {
-            [Op.gte]: startUt,
-            [Op.lte]: endUt
-          }
-        },
+        where
       })
       const categories: any[] = await DB.Categories.findAll();
-      const categoryIds: Record<string, number> = {};
-      categories.forEach(category => categoryIds[category.id] = 0);
 
       const start = new Date(startUt * 1000);
       const end = new Date(endUt * 1000);
 
-      if (end.getMonth() > start.getMonth() || end.getFullYear() > start.getFullYear()) {
-        const months = [
-          {
-            name: "Январь",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Февраль",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Март",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Апрель",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Май",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Июнь",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Июль",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Август",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Сентябрь",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Октябрь",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Ноябрь",
-            value: 0,
-            ...categoryIds
-          },
-          {
-            name: "Декабрь",
-            value: 0,
-            ...categoryIds
-          }
-        ]
+      let diffDays = diffDateDays(start, end);
 
-        transactions.forEach((transaction: any) => {
-          const date = new Date(transaction.date * 1000);
-          const monthIndex = date.getMonth();
-          const month: any = months[monthIndex]
+      if (start.getDate() !== end.getDate()) {
+        diffDays += 2;
+      } else diffDays++
 
-          month.value += Number(transaction.amount);
-          if (transaction.categoryId) month[transaction.categoryId] += Number(transaction.amount);
-        })
-
-        return res.json(
-          months
-        );
-      } else {
-        const month = start.getMonth();
-        const daysDate = new Date(start.getFullYear(), month + 1, 0);
-        const days = daysDate.getDate();
-        const data: { [key: string]: any } = {};
-
-        for (let day = 1; day <= days; day++) {
-          if (day >= start.getDate() && day <= end.getDate()) {
-            data[day] = {
-              name: String(day),
+      if (chartType === "dynamic") {
+        const categoryIds: Record<string, number> = {};
+        categories.forEach(category => categoryIds[category.id] = 0);
+        if (diffDays > 33) {
+          const months = [
+            {
+              name: "Январь",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Февраль",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Март",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Апрель",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Май",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Июнь",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Июль",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Август",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Сентябрь",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Октябрь",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Ноябрь",
+              value: 0,
+              ...categoryIds
+            },
+            {
+              name: "Декабрь",
               value: 0,
               ...categoryIds
             }
+          ]
+
+          transactions.forEach((transaction: any) => {
+            const date = new Date(transaction.date * 1000);
+            const monthIndex = date.getMonth();
+            const month: any = months[monthIndex]
+
+            month.value += Math.abs(Number(transaction.amount));
+            if (transaction.categoryId) month[transaction.categoryId] += Math.abs(Number(transaction.amount));
+          })
+
+          return res.json(
+            months.filter((m, i) => start.getMonth() <= i && end.getMonth() >= i)
+          );
+        } else {
+          const data: { [key: string]: any } = {};
+
+          let day = new Date(start.getTime());
+          day.setDate(start.getDate() + 1);
+          data[getStatisticDateKey(start)] = { name: String(start.getDate()), value: 0, ...categoryIds };
+          while (day.getTime() > start.getTime() && day.getTime() < end.getTime()) {
+            const key = getStatisticDateKey(day);
+            data[key] = {
+              name: String(day.getDate()),
+              value: 0,
+              ...categoryIds
+            }
+            day.setDate(day.getDate() + 1)
           }
+          data[getStatisticDateKey(end)] = { name: String(end.getDate()), value: 0, ...categoryIds };
+
+          transactions.forEach((transaction: any) => {
+            const date = new Date(transaction.date * 1000);
+            const key = getStatisticDateKey(date);
+
+            if (data[key]) {
+              data[key].value += Math.abs(Number(transaction.amount));
+              if (transaction.categoryId) data[key][transaction.categoryId] += Math.abs(Number(transaction.amount));
+            }
+          })
+
+          return res.json(Object.values(data));
         }
+      } else if (chartType === "review") {
+        const categoriesMap: Record<string, { name: string, value: number, id: number }> = {};
 
-        transactions.forEach((transaction: any) => {
-          const date = new Date(transaction.date * 1000);
-          const day = date.getDate();
-          console.log(transaction.name, date.getDate())
-
-          if (data[day]) {
-            data[day].value += Number(transaction.amount);
-            if (transaction.categoryId) data[day][transaction.categoryId] += Number(transaction.amount);
+        categories.forEach(category => {
+          categoriesMap[category.id] = {
+            id: category.id,
+            name: category.name,
+            value: 0
           }
         })
 
-        return res.json(Object.values(data));
+        transactions.forEach(transaction => {
+          if (categoriesMap[transaction.categoryId]) {
+            categoriesMap[transaction.categoryId].value += Math.abs(Number(transaction.amount));
+          }
+        })
+
+        return res.json(Object.values(categoriesMap));
       }
+
 
 
     } catch (e) {
