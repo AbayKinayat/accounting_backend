@@ -1,5 +1,6 @@
+import { IUser } from './../types/IUser';
 import { NextFunction, Request, Response } from "express";
-import DB, { sequelize } from "../models";
+import DB from "../models";
 import type { UserDto } from "../dto/userDto";
 import ApiError from "../exceptions/api-error";
 import { calcOffset } from "../helpers/calcOffset";
@@ -28,8 +29,6 @@ interface GetStatisticBody {
   typeId?: number,
   chartType?: ChartType
 }
-
-type YearFilter = "year" | "month" | "week";
 
 export class TransactionsController {
 
@@ -124,17 +123,27 @@ export class TransactionsController {
         date,
         typeId
       } = req.body;
+      const user = req.user as IUser;
+      const currentUser: any = await DB.Users.findByPk(user.id);
 
-      const transaction = await DB.Transactions.create({
-        userId: req.user?.id,
-        amount,
-        categoryId,
-        date,
-        name,
-        typeId
-      }, { include: { all: true } });
+      if (currentUser) {
+        const transaction = await DB.Transactions.create({
+          userId: req.user?.id,
+          amount,
+          categoryId,
+          date,
+          name,
+          typeId
+        }, { include: { all: true } });
 
-      return res.status(201).json(transaction);
+        currentUser.cash = Number(currentUser.cash) + amount;
+        currentUser?.save();
+
+        return res.status(201).json(transaction);
+      }
+
+
+      return res.status(401);
     } catch (e) {
       next(e);
     }
@@ -146,7 +155,7 @@ export class TransactionsController {
     next: NextFunction
   ) {
     try {
-      const { } = req.body;
+      const user = req.user as IUser;
 
       const accessProps = ["name", "categoryId", "typeId", "amount", "date"];
       const data: Partial<ITransactionCreate> = {};
@@ -158,6 +167,12 @@ export class TransactionsController {
         }
       }
 
+      const prevTransaction: any = await DB.Transactions.findByPk(Number(req.params.id), {
+        include: { all: true }
+      });
+      const prevAmount = Number(prevTransaction.amount);
+
+      const currentUser: any = await DB.Users.findByPk(user.id);
       await DB.Transactions.update(data, {
         where: {
           id: req.params.id,
@@ -165,9 +180,15 @@ export class TransactionsController {
         },
       });
 
-      const transaction = await DB.Transactions.findByPk(Number(req.params.id), {
+      const transaction: any = await DB.Transactions.findByPk(Number(req.params.id), {
         include: { all: true }
       });
+
+      if (currentUser) {
+        currentUser.cash = Number(currentUser.cash) - Number(prevAmount);
+        currentUser.cash = Number(currentUser.cash) + Number(data.amount);
+        currentUser.save()
+      }
 
       return res.json(transaction);
     } catch (e) {
