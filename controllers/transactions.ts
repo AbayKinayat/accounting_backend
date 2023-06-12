@@ -16,11 +16,13 @@ import { diffDateDays } from "../helpers/diffDateDays";
 import { getStatisticDateKey } from "../helpers/test";
 
 interface TransactionGetBody {
-  page: number,
-  limit: number,
+  page?: number,
+  limit?: number,
   filters?: Filters,
   sortField?: string,
   sortOrder?: number
+  startUt?: number,
+  endUt?: number
 }
 
 interface GetStatisticBody {
@@ -38,7 +40,7 @@ export class TransactionsController {
     next: NextFunction
   ) {
     try {
-      const { page, limit, filters, sortField, sortOrder } = req.body;
+      const { page, limit, filters, sortField, sortOrder, startUt, endUt } = req.body;
       const user = req.user as UserDto;
 
       if (page && limit) {
@@ -63,6 +65,19 @@ export class TransactionsController {
         const paginatedData = createPaginationData(transactions.rows, transactions.count, limit);
 
         return res.status(200).json(paginatedData);
+      } else if (startUt && endUt) {
+        const transactions = await DB.Transactions.findAll({
+          where: {
+            date: {
+              [Op.gte]: startUt,
+              [Op.lte]: endUt
+            },
+            userId: user.id
+          },
+          include: { all: true }
+        });
+
+        return res.status(200).json(transactions);
       }
 
       throw ApiError.BadRequest("page or limit not found");
