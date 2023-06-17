@@ -51,6 +51,14 @@ export class TransactionsController {
           },
           include: { all: true }
         }
+
+        if (startUt && endUt && options.where) {
+          (options.where as any).date = {
+            [Op.gte]: startUt,
+            [Op.lte]: endUt
+          }
+        }
+
         if (filters)
           options.where = Object.assign(buildSequelizeFilters(filters), options.where);
         if (sortField && sortOrder) {
@@ -214,8 +222,10 @@ export class TransactionsController {
   public async getStatistic(req: Request<{}, any, GetStatisticBody>, res: Response, next: NextFunction) {
     try {
       const { startUt, endUt, typeId, chartType = "dynamic" } = req.body;
+      const user = req.user as IUser
 
       const where: WhereOptions = {
+        userId: user.id,
         date: {
           [Op.gte]: startUt,
           [Op.lte]: endUt
