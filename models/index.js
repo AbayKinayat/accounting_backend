@@ -39,6 +39,7 @@ const configs = {
  * @property {Sequelize.ModelStatic<Sequelize.Model<any, any>>} Tokens
  * @property {Sequelize.ModelStatic<Sequelize.Model<any, any>>} TransactionTypes
  * @property {Sequelize.ModelStatic<Sequelize.Model<any, any>>} Debt
+ * @property {Sequelize.ModelStatic<Sequelize.Model<any, any>>} Budget
  */
 
 const config = configs[env];

@@ -7,5 +7,6 @@ export interface ICategory {
   count?: number
   createdAt: string,
   updatedAt: StringConstructor,
-  percent?: string
+  percent?: string,
+  budget?: number
 }

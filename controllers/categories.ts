@@ -35,6 +35,11 @@ export class CategoriesController {
             }
           }
         });
+        const budgets: any[] = await DB.Budget.findAll({
+          where: {
+            userId: user.id
+          }
+        })
 
         const categoryMap: Record<string, ICategory> = {};
 
@@ -63,8 +68,21 @@ export class CategoriesController {
           }
         })
 
+        budgets.forEach(budget => {
+          const category = categoryMap[budget.categoryId];
+          const amount = Number(budget.amount);
+
+          if (category) {
+            if (!category.budget) category.budget = 0;
+            category.budget += amount;
+          }
+        })
+
         const categoriesValue = Object.values(categoryMap).map(category => {
           let percentage: number | string = 0;
+          if (!category.budget) category.budget = 0;
+          if (!category.sum) category.sum = 0;
+
           let sum = Number(category.sum);
           if (sum < 0 && expenseAmount) {
             percentage = (sum / expenseAmount) * 100;
