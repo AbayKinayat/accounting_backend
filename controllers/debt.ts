@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { IUser } from "../types/IUser";
 import DB, { sequelize } from "../models";
-import ApiError from "../exceptions/api-error";
 import { DebtStatus } from "../enum/DebtStatus";
 
 interface IDebtCreate {
@@ -31,8 +30,10 @@ export class DebtController {
       if (isCashChange && statusId === DebtStatus.OPEN) {
         const dbUser: any = await DB.Users.findByPk(user.id);
 
-        dbUser.cash = this.calcUserCash(dbUser.cash, sum, isDebtor);
-        dbUser?.save()
+        const actualSum = Number(sum) - Number(amountPaid);
+
+        dbUser.cash = DebtController.calcUserCash(dbUser.cash, actualSum, isDebtor);
+        await dbUser?.save()
       }
 
       return res.status(201).json(debt);
@@ -49,6 +50,8 @@ export class DebtController {
       const debt: any = await DB.Debt.findByPk(req.params.id);
       
       const statusId = req.body.statusId || debt.statusId;
+
+      const sum = Number(req.body.sum) - Number()
 
       delete req.body.isCashChange
 
@@ -67,7 +70,10 @@ export class DebtController {
         const isDebtor = req.body.isDebtor || debt.isDebtor;
         const sum = req.body.sum || debt.sum;
 
-        dbUser.cash = this.calcUserCash(initialCash, sum, isDebtor);
+        console.log("sum", sum)
+
+        dbUser.cash = DebtController.calcUserCash(initialCash, sum, isDebtor);
+        await dbUser.save()
       }
 
       DB.Debt.update({ ...req.body }, {
@@ -86,21 +92,22 @@ export class DebtController {
     try {
       const user = req.user as IUser;
 
-      const debts = DB.Debt.findAll({
+      const debts = await DB.Debt.findAll({
         where: {
           userId: user.id
         }
       });
 
-      return debts;
+      return res.json(debts);
     } catch (e) {
       next(e);
     }
   }
 
-  async delete(req: Request<{ id?: number }>, res: Response, next: NextFunction) {
+  async delete(req: Request<{ id?: number }, any, any, { isCashChange?: boolean }>, res: Response, next: NextFunction) {
     try {
       const id = req.params.id;
+      const isCashChange = Boolean(req.query.isCashChange);
       const user = req.user as IUser;
 
       const debt: any = await DB.Debt.findOne({ 
@@ -110,7 +117,7 @@ export class DebtController {
         }
       });
 
-      if (debt.statusId === DebtStatus.OPEN) {
+      if (isCashChange) {
         const dbUser: any = await DB.Users.findByPk(user.id);
         
         let cash = Number(dbUser.cash) + Number(debt.sum);
@@ -120,7 +127,7 @@ export class DebtController {
         }
 
         dbUser.cash = cash;
-        dbUser.save();
+        await dbUser.save();
       }
 
       await debt?.destroy();
@@ -132,11 +139,11 @@ export class DebtController {
     }
   }
 
-  calcUserCash(cash: number, sum: number, isDebtor: boolean) {
-    let actualCash = cash - Number(sum);
+  static calcUserCash(cash: string | number, sum: string | number, isDebtor: boolean) {
+    let actualCash = Number(cash) - Number(sum);
 
     if (isDebtor) {
-      actualCash  = cash + Number(sum);
+      actualCash  = Number(cash) + Number(sum);
     }
 
     return actualCash;
