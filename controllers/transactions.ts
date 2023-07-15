@@ -22,7 +22,8 @@ interface TransactionGetBody {
   sortField?: string,
   sortOrder?: number
   startUt?: number,
-  endUt?: number
+  endUt?: number,
+  search?: string
 }
 
 interface GetStatisticBody {
@@ -40,7 +41,7 @@ export class TransactionsController {
     next: NextFunction
   ) {
     try {
-      const { page, limit, filters, sortField, sortOrder, startUt, endUt } = req.body;
+      const { page, limit, filters, sortField, sortOrder, startUt, endUt, search } = req.body;
       const user = req.user as UserDto;
 
       if (page && limit) {
@@ -51,6 +52,12 @@ export class TransactionsController {
           },
           include: { all: true }
         }
+
+        if (search && options.where) (options.where as any)[Op.or] = [
+          {
+            name: { [Op.like]: `%${search}%` }
+          }
+        ]
 
         if (startUt && endUt && options.where) {
           (options.where as any).date = {
